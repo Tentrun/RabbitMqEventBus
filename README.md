@@ -1,3 +1,6 @@
+[![NuGet](https://img.shields.io/nuget/v/Tentrun.RabbitMqEventBus)](https://www.nuget.org/packages/Tentrun.RabbitMqEventBus/)
+[![License](https://img.shields.io/github/license/Tentrun/RabbitMqEventBus)](LICENSE)
+
 ## Обзор
 
 Библиотека для работы с RabbitMQ, предоставляющая все критичные функции:
