@@ -1,5 +1,3 @@
-# GrowBackend EventBus - Production-Ready RabbitMQ Library
-
 ## Обзор
 
 Библиотека для работы с RabbitMQ, предоставляющая все критичные функции:
