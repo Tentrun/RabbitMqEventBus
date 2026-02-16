@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RabbitMqBus.Abstractions.Base.Interfaces;
 using RabbitMqBus.DI;
 using RabbitMqBus.Models;
 
@@ -28,6 +29,41 @@ public class RabbitMqEventBusBuilder
     {
         _services.AddScoped<THandler>();
         _register.AddConsumer<THandler>(exchangeType, customQueueName);
+        return this;
+    }
+
+    public RabbitMqEventBusBuilder AddConsumer<THandler>(string customExchangeName, string routingKey, string queueName)
+        where THandler : class
+    {
+        _services.AddScoped<THandler>();
+        _register.AddConsumer<THandler>(customExchangeName, routingKey, queueName);
+        return this;
+    }
+
+    public RabbitMqEventBusBuilder AddConsumer<TEvent, THandler>(EventExchangeType exchangeType) 
+        where TEvent : IEvent
+        where THandler : class, IEventHandler<TEvent>
+    {
+        _services.AddScoped<THandler>();
+        _register.AddConsumer<TEvent, THandler>(exchangeType);
+        return this;
+    }
+
+    public RabbitMqEventBusBuilder AddConsumer<TEvent, THandler>(EventExchangeType exchangeType, string customQueueName) 
+        where TEvent : IEvent
+        where THandler : class, IEventHandler<TEvent>
+    {
+        _services.AddScoped<THandler>();
+        _register.AddConsumer<TEvent, THandler>(exchangeType, customQueueName);
+        return this;
+    }
+
+    public RabbitMqEventBusBuilder AddConsumer<TEvent, THandler>(string customExchangeName, string routingKey, string queueName)
+        where TEvent : IEvent
+        where THandler : class, IEventHandler<TEvent>
+    {
+        _services.AddScoped<THandler>();
+        _register.AddConsumer<TEvent, THandler>(customExchangeName, routingKey, queueName);
         return this;
     }
 }

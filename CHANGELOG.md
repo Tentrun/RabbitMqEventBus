@@ -5,6 +5,38 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и этот проект придерживается [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.1.2] - 2026-02-16
+
+### Добавлено
+
+- **`AddConsumer<THandler>(string customExchangeName, string routingKey, string queueName)`** - декларативная регистрация consumer для кастомных exchanges
+  - Позволяет регистрировать подписку на произвольный exchange прямо в Program.cs через builder
+  - Автоматическая подписка при старте приложения через EventBusBackgroundService
+  - Устраняет необходимость вручную вызывать `SubscribeToCustomExchangeAsync` после создания `app`
+
+- **Перегрузки с явным указанием типа события**: `AddConsumer<TEvent, THandler>` для всех методов
+
+### Улучшения
+
+- ConsumerRegistration хранит `Func<IEventBus, Task>` вместо множества параметров
+
+### Примеры использования
+
+```csharp
+// До: ручная подписка в Program.cs
+var app = builder.Build();
+using (var scope = app.Services.CreateScope())
+{
+    var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+    await eventBus.SubscribeToCustomExchangeAsync<TelemetryEvent, TelemetryHandler>(
+        "amq.topic", "devices.*.telemetry", "mqtt.telemetry.all");
+}
+
+// После: декларативная регистрация
+services.AddRabbitMqEventBus(options => { /* ... */ })
+    .AddConsumer<TelemetryHandler>("amq.topic", "devices.*.telemetry", "mqtt.telemetry.all");
+```
+
 ## [1.1.1] - 2026-02-16
 
 ### Добавлено

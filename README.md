@@ -177,10 +177,7 @@ public class OrderCreatedHandler : IEventHandler<OrderCreatedEvent>
     }
 }
 
-// Регистрация в DI
-services.AddScoped<OrderCreatedHandler>();
-
-// Program.cs - стандартная регистрация
+// Program.cs - стандартная регистрация (AddConsumer автоматически регистрирует handler в DI)
 services.AddRabbitMqEventBus(options =>
 {
     options.HostName = "localhost";
@@ -191,9 +188,17 @@ services.AddRabbitMqEventBus(options =>
 })
 .AddConsumer<OrderCreatedHandler>(EventExchangeType.Direct);
 
+// Или с явным указанием типа события (типобезопасность)
+services.AddRabbitMqEventBus(options => { /* ... */ })
+    .AddConsumer<OrderCreatedEvent, OrderCreatedHandler>(EventExchangeType.Direct);
+
 // Регистрация с кастомным именем очереди
 services.AddRabbitMqEventBus(options => { /* ... */ })
     .AddConsumer<OrderCreatedHandler>(EventExchangeType.Direct, "custom.order.queue");
+
+// Регистрация с кастомным exchange (например, для MQTT интеграции)
+services.AddRabbitMqEventBus(options => { /* ... */ })
+    .AddConsumer<MqttTelemetryHandler>("amq.topic", "devices.*.telemetry", "mqtt.telemetry.all");
 ```
 
 **Зачем кастомные имена очередей?**
@@ -700,4 +705,29 @@ A: Предыдущий (существующий) эксчейндж удали
 
 ---
 
-*Версия документации: 1.1.1*
+## Changelog
+
+### 1.1.2
+- **Упрощённые имена очередей:** `q.{HandlerName}` вместо `queue.{EventName}.{HandlerName}.{RoutingKeySuffix}`
+- **Topic exchange routing:** Для Topic и Direct exchanges routing key теперь устанавливается в имя события автоматически
+- **Graceful Shutdown fix:** Исправлена ошибка `ObjectDisposedException` при повторном закрытии канала
+- **Единый API `AddConsumer`:** Убрана дублирующая `AddConsumerWithCustomExchange` в `EventConsumerRegister`, заменена на перегрузку `AddConsumer`
+- **Рефакторинг `EventConsumerRegister`:** Выделены `ResolveTypes`, `BuildStandardSubscribeAction`, `BuildCustomSubscribeAction`
+
+### 1.1.1
+- Добавлен `PublishToExchangeAsync` для публикации в произвольные exchanges
+- Добавлен `SubscribeToCustomExchangeAsync` для подписки на сторонние exchanges
+- Добавлена поддержка кастомных имен очередей через `AddConsumer`
+- Builder-паттерн `AddConsumer` для декларативной регистрации консьюмеров (автоматическая DI регистрация)
+
+### 1.0.0
+- Базовый EventBus: Publish/Subscribe, Direct/Fanout/Topic
+- Retry Policy с экспоненциальной задержкой
+- Dead Letter Queue (DLQ)
+- Prefetch Count, Health Checks, Graceful Shutdown
+- Message TTL, Observability (метрики)
+- Request/Response (RPC), Idempotency, Concurrency Control
+
+---
+
+*Версия документации: 1.1.2*

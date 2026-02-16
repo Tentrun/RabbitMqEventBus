@@ -44,7 +44,12 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
             await _channelManager.EnsureExchangeAsync<TEvent>(exchangeType.Value, cancellationToken);
         }
 
-        var routingKey = exchangeType == EventExchangeType.Direct ? eventName : string.Empty;
+        var routingKey = exchangeType switch
+        {
+            EventExchangeType.Direct => eventName,
+            EventExchangeType.Topic => eventName,
+            _ => string.Empty
+        };
         await PublishToEventExchangeAsync(@event, eventName, exchangeType.Value, routingKey, cancellationToken);
     }
 
@@ -83,7 +88,7 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
         where THandler : IEventHandler<TEvent>
     {
         var eventName = typeof(TEvent).Name;
-        var routingKey = exchangeType == EventExchangeType.Direct ? eventName : string.Empty;
+        var routingKey = ResolveRoutingKey(exchangeType, eventName);
 
         await SubscribeInternalAsync<TEvent, THandler>(routingKey, exchangeType, customQueueName: null);
     }
@@ -93,7 +98,7 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
         where THandler : IEventHandler<TEvent>
     {
         var eventName = typeof(TEvent).Name;
-        var routingKey = exchangeType == EventExchangeType.Direct ? eventName : string.Empty;
+        var routingKey = ResolveRoutingKey(exchangeType, eventName);
 
         await SubscribeInternalAsync<TEvent, THandler>(routingKey, exchangeType, customQueueName);
     }
@@ -232,7 +237,7 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
         
         var queueName = !string.IsNullOrEmpty(customQueueName)
             ? customQueueName
-            : GenerateQueueName(eventName, handlerType.Name, routingKey);
+            : GenerateQueueName(handlerType.Name);
         
         var exchangeName = $"exchange.{eventName}";
         var dlxName = $"exchange.{eventName}.dlx";
@@ -273,12 +278,13 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
         await _dispatcher.StartConsumerAsync(queueName);
     }
 
-    private static string GenerateQueueName(string eventName, string handlerName, string routingKey)
-    {
-        var routingKeySuffix = string.IsNullOrEmpty(routingKey)
-            ? "default"
-            : routingKey.Replace(".", "_").Replace("*", "any").Replace("#", "all");
-        
-        return $"queue.{eventName}.{handlerName}.{routingKeySuffix}";
-    }
+    private static string GenerateQueueName(string handlerName) => $"q.{handlerName}";
+
+    private static string ResolveRoutingKey(EventExchangeType exchangeType, string eventName) =>
+        exchangeType switch
+        {
+            EventExchangeType.Direct => eventName,
+            EventExchangeType.Topic => eventName,
+            _ => string.Empty
+        };
 }

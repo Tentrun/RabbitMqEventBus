@@ -17,6 +17,7 @@ public class RabbitMqChannelManager : IRabbitMqChannelManager
     private IChannel? _channel;
     private readonly Dictionary<string, EventExchangeType> _eventExchangeTypes = new();
     private readonly HashSet<string> _declaredExchanges = new();
+    private bool _disposed;
 
     public RabbitMqChannelManager(
         IRabbitMqConnection connection,
@@ -205,12 +206,16 @@ public class RabbitMqChannelManager : IRabbitMqChannelManager
 
     public async ValueTask DisposeAsync()
     {
-        if (_channel != null)
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        if (_channel is { IsOpen: true })
         {
             try
             {
                 await _channel.CloseAsync();
-                _channel.Dispose();
                 _logger.LogInformation("RabbitMQ подключение закрыто");
             }
             catch (Exception ex)
@@ -219,6 +224,7 @@ public class RabbitMqChannelManager : IRabbitMqChannelManager
             }
         }
 
+        _channel?.Dispose();
         await _connection.DisposeAsync();
         _channelLock.Dispose();
     }
