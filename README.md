@@ -12,7 +12,7 @@
 
 **Полнофункциональная Event Bus для RabbitMQ с фокусом на надёжность, observability и developer experience**
 
-[Быстрый старт](#-быстрый-старт) • [Документация](#-архитектура-событий) • [Примеры](#-примеры-использования) • [FAQ](#-faq)
+[Быстрый старт](#-быстрый-старт) • [Примеры](#-примеры-использования) • [FAQ](#-faq)
 
 </div>
 
@@ -874,19 +874,10 @@ RabbitMQ.Client.Exceptions.BrokerUnreachableException
 
 ---
 
-## 📞 Поддержка
-
-- 🐛 **Issues**: [GitHub Issues](https://github.com/Tentrun/RabbitMqEventBus/issues)
-- 💡 **Discussions**: [GitHub Discussions](https://github.com/Tentrun/RabbitMqEventBus/discussions)
-- 📦 **NuGet**: [Tentrun.RabbitMqEventBus](https://www.nuget.org/packages/Tentrun.RabbitMqEventBus/)
-- 📖 **Documentation**: [GitHub Repository](https://github.com/Tentrun/RabbitMqEventBus)
-
----
-
 <div align="center">
 
 ⭐ Если библиотека оказалась полезной, поставьте звезду на GitHub!
 
 *Версия документации: 1.1.2*
-
+*README И CHANGELOG AI GENERATED (ВОЗМОЖНЫ НЕТОЧНОСТИ)*
 </div>
