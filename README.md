@@ -622,6 +622,52 @@ await _eventBus.SubscribeAsync<OrderCreatedEvent, OrderCreatedHandler>(
 
 ---
 
+#### SubscribeToCustomExchangeAsync<TEvent, THandler>(string customExchangeName, string routingKey, string queueName, EventExchangeType? exchangeType = null)
+Подписка на существующий произвольный exchange.
+
+**Параметры:**
+- `TEvent` - тип события
+- `THandler` - тип обработчика
+- `customExchangeName` - имя exchange
+- `routingKey` - routing key для привязки очереди
+- `queueName` - имя создаваемой очереди
+- `exchangeType` - (опционально) тип exchange для создания, если не существует
+
+**Use Cases:**
+- Подписка на системные RabbitMQ exchanges (`amq.topic`, `amq.direct`, `amq.fanout`)
+- Интеграция с внешними системами, которые публикуют в свои exchanges
+- Подключение к legacy exchanges
+- Bridge-адаптеры между различными системами обмена сообщениями
+
+**Примеры:**
+```csharp
+// Подписка на существующий системный exchange amq.topic
+await _eventBus.SubscribeToCustomExchangeAsync<TelemetryEvent, TelemetryHandler>(
+    customExchangeName: "amq.topic",
+    routingKey: "sensors.*.temperature",
+    queueName: "telemetry.temperature.processor");
+
+// Создание exchange и подписка (если exchange не существует)
+await _eventBus.SubscribeToCustomExchangeAsync<OrderEvent, OrderHandler>(
+    customExchangeName: "external.orders.exchange",
+    routingKey: "order.#",
+    queueName: "order.processor",
+    exchangeType: EventExchangeType.Topic);
+
+// Wildcard подписка на все события
+await _eventBus.SubscribeToCustomExchangeAsync<GenericEvent, GenericHandler>(
+    customExchangeName: "external.integration",
+    routingKey: "#",
+    queueName: "integration.listener");
+```
+
+**Важно:** 
+- Если `exchangeType` **не указан** (null) - exchange должен существовать заранее
+- Если `exchangeType` **указан** - exchange будет создан, если не существует
+- Системные exchanges (`amq.*`) уже существуют, для них не указывайте `exchangeType`
+
+---
+
 #### RequestAsync<TRequest, TResponse>(TRequest request, int timeoutMs = 30000, CancellationToken cancellationToken = default)
 Синхронный запрос-ответ (RPC pattern).
 
@@ -654,4 +700,4 @@ A: Предыдущий (существующий) эксчейндж удали
 
 ---
 
-*Версия документации: 1.1.0*
+*Версия документации: 1.1.1*

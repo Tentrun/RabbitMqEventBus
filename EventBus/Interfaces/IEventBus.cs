@@ -26,6 +26,10 @@ public interface IEventBus
         where T : IEvent
         where THandler : IEventHandler<T>;
     
+    Task SubscribeToCustomExchangeAsync<T, THandler>(string customExchangeName, string routingKey, string queueName, EventExchangeType? exchangeType = null)
+        where T : IEvent
+        where THandler : IEventHandler<T>;
+    
     void Unsubscribe<T, THandler>()
         where T : IEvent
         where THandler : IEventHandler<T>;
