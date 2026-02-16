@@ -22,4 +22,12 @@ public class RabbitMqEventBusBuilder
         _register.AddConsumer<THandler>(exchangeType);
         return this;
     }
+
+    public RabbitMqEventBusBuilder AddConsumer<THandler>(EventExchangeType exchangeType, string customQueueName) 
+        where THandler : class
+    {
+        _services.AddScoped<THandler>();
+        _register.AddConsumer<THandler>(exchangeType, customQueueName);
+        return this;
+    }
 }

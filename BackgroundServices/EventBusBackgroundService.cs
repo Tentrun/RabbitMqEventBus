@@ -68,16 +68,35 @@ public class EventBusBackgroundService : BackgroundService
         {
             try
             {
-                var method = typeof(IEventBus)
-                    .GetMethod(nameof(IEventBus.SubscribeAsync), 
-                        2, BindingFlags.Public | BindingFlags.Instance, types:new[] { typeof(EventExchangeType) })?
-                    .MakeGenericMethod(reg.EventType, reg.HandlerType);
+                MethodInfo? method;
                 
-                if (method != null)
+                if (!string.IsNullOrEmpty(reg.CustomQueueName))
                 {
-                    await (Task)method.Invoke(eventBus, new object[] { reg.ExchangeType })!;
-                    _logger.LogInformation("Подписка на {EventType} с обработчиком {HandlerType} (тип exchange: {ExchangeType})",
-                        reg.EventType.Name, reg.HandlerType.Name, reg.ExchangeType);
+                    method = typeof(IEventBus)
+                        .GetMethod(nameof(IEventBus.SubscribeAsync), 
+                            2, BindingFlags.Public | BindingFlags.Instance, types: new[] { typeof(EventExchangeType), typeof(string) })?
+                        .MakeGenericMethod(reg.EventType, reg.HandlerType);
+                    
+                    if (method != null)
+                    {
+                        await (Task)method.Invoke(eventBus, new object[] { reg.ExchangeType, reg.CustomQueueName })!;
+                        _logger.LogInformation("Подписка на {EventType} с обработчиком {HandlerType} (тип exchange: {ExchangeType}, очередь: {QueueName})",
+                            reg.EventType.Name, reg.HandlerType.Name, reg.ExchangeType, reg.CustomQueueName);
+                    }
+                }
+                else
+                {
+                    method = typeof(IEventBus)
+                        .GetMethod(nameof(IEventBus.SubscribeAsync), 
+                            2, BindingFlags.Public | BindingFlags.Instance, types: new[] { typeof(EventExchangeType) })?
+                        .MakeGenericMethod(reg.EventType, reg.HandlerType);
+                    
+                    if (method != null)
+                    {
+                        await (Task)method.Invoke(eventBus, new object[] { reg.ExchangeType })!;
+                        _logger.LogInformation("Подписка на {EventType} с обработчиком {HandlerType} (тип exchange: {ExchangeType})",
+                            reg.EventType.Name, reg.HandlerType.Name, reg.ExchangeType);
+                    }
                 }
             }
             catch (Exception ex)

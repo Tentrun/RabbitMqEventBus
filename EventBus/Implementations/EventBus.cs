@@ -67,6 +67,13 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
         await _publisher.PublishAsync(@event, exchangeName, customRoutingKey, eventName, cancellationToken);
     }
 
+    public async Task PublishToExchangeAsync<TEvent>(TEvent @event, string customExchangeName, string routingKey, CancellationToken cancellationToken = default)
+        where TEvent : IEvent
+    {
+        var eventName = typeof(TEvent).Name;
+        await _publisher.PublishAsync(@event, customExchangeName, routingKey, eventName, cancellationToken);
+    }
+
     public async Task SubscribeAsync<TEvent, THandler>(EventExchangeType exchangeType = EventExchangeType.Fanout)
         where TEvent : IEvent
         where THandler : IEventHandler<TEvent>
@@ -74,14 +81,24 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
         var eventName = typeof(TEvent).Name;
         var routingKey = exchangeType == EventExchangeType.Direct ? eventName : string.Empty;
 
-        await SubscribeInternalAsync<TEvent, THandler>(routingKey, exchangeType);
+        await SubscribeInternalAsync<TEvent, THandler>(routingKey, exchangeType, customQueueName: null);
+    }
+
+    public async Task SubscribeAsync<TEvent, THandler>(EventExchangeType exchangeType, string customQueueName)
+        where TEvent : IEvent
+        where THandler : IEventHandler<TEvent>
+    {
+        var eventName = typeof(TEvent).Name;
+        var routingKey = exchangeType == EventExchangeType.Direct ? eventName : string.Empty;
+
+        await SubscribeInternalAsync<TEvent, THandler>(routingKey, exchangeType, customQueueName);
     }
 
     public async Task SubscribeAsync<TEvent, THandler>(string customRoutingKey, EventExchangeType exchangeType = EventExchangeType.Direct)
         where TEvent : IEvent
         where THandler : IEventHandler<TEvent>
     {
-        await SubscribeInternalAsync<TEvent, THandler>(customRoutingKey, exchangeType);
+        await SubscribeInternalAsync<TEvent, THandler>(customRoutingKey, exchangeType, customQueueName: null);
     }
 
     public void Unsubscribe<TEvent, THandler>()
@@ -173,16 +190,17 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
         _logger.LogInformation("EventBus мягко остановлен");
     }
 
-    private async Task SubscribeInternalAsync<TEvent, THandler>(string routingKey, EventExchangeType exchangeType)
+    private async Task SubscribeInternalAsync<TEvent, THandler>(string routingKey, EventExchangeType exchangeType, string? customQueueName = null)
         where TEvent : IEvent
         where THandler : IEventHandler<TEvent>
     {
         var eventName = typeof(TEvent).Name;
         var handlerType = typeof(THandler);
-        var routingKeySuffix = string.IsNullOrEmpty(routingKey)
-            ? "default"
-            : routingKey.Replace(".", "_").Replace("*", "any").Replace("#", "all");
-        var queueName = $"queue.{eventName}.{handlerType.Name}.{routingKeySuffix}";
+        
+        var queueName = !string.IsNullOrEmpty(customQueueName)
+            ? customQueueName
+            : GenerateQueueName(eventName, handlerType.Name, routingKey);
+        
         var exchangeName = $"exchange.{eventName}";
         var dlxName = $"exchange.{eventName}.dlx";
 
@@ -213,5 +231,14 @@ public class EventBusRabbitMq : IEventBus, IAsyncDisposable
             $"Подписка на событие {eventName} с обработчиком {handlerType.Name}, очередь {queueName}, exchange {exchangeName} (тип: {exchangeType}, routing key: '{routingKey}')");
 
         await _dispatcher.StartConsumerAsync(queueName);
+    }
+
+    private static string GenerateQueueName(string eventName, string handlerName, string routingKey)
+    {
+        var routingKeySuffix = string.IsNullOrEmpty(routingKey)
+            ? "default"
+            : routingKey.Replace(".", "_").Replace("*", "any").Replace("#", "all");
+        
+        return $"queue.{eventName}.{handlerName}.{routingKeySuffix}";
     }
 }

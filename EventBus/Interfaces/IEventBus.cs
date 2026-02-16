@@ -11,7 +11,14 @@ public interface IEventBus
     Task PublishAsync<T>(T @event, string customRoutingKey, CancellationToken token = default) 
         where T : IEvent;
     
+    Task PublishToExchangeAsync<T>(T @event, string customExchangeName, string routingKey, CancellationToken token = default)
+        where T : IEvent;
+    
     Task SubscribeAsync<T, THandler>(EventExchangeType exchangeType = EventExchangeType.Fanout)
+        where T : IEvent
+        where THandler : IEventHandler<T>;
+    
+    Task SubscribeAsync<T, THandler>(EventExchangeType exchangeType, string customQueueName)
         where T : IEvent
         where THandler : IEventHandler<T>;
     

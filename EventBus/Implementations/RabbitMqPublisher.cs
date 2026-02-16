@@ -46,6 +46,16 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         try
         {
             var channel = await _channelManager.GetChannelAsync(cancellationToken);
+
+            if (@event.EventId == null || @event.EventId == Guid.Empty)
+            {
+                @event.EventId = Guid.NewGuid();
+            }
+
+            if (@event.CreatedOn == null || @event.CreatedOn == DateTime.MinValue)
+            {
+                @event.CreatedOn = DateTime.UtcNow;
+            }
             
             await channel.BasicPublishAsync(
                 exchange: exchangeName,
@@ -58,7 +68,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher
             stopwatch.Stop();
             _metrics?.RecordPublished(eventName, stopwatch.Elapsed.TotalMilliseconds);
 
-            _logger.LogDebug($"Опубликовано событие {eventName} в {exchangeName} (routing: '{routingKey}'), Id: {@event.Id}");
+            _logger.LogDebug($"Опубликовано событие {eventName} в {exchangeName} (routing: '{routingKey}'), Id: {@event.EventId}");
         }
         catch (Exception ex)
         {
@@ -74,7 +84,7 @@ public class RabbitMqPublisher : IRabbitMqPublisher
         {
             Persistent = true,
             Type = eventName,
-            MessageId = @event.Id.ToString(),
+            MessageId = @event.EventId.ToString(),
             Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
             ContentType = "application/json"
         };

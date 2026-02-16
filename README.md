@@ -83,8 +83,8 @@ services.AddRabbitMqHealthCheck();
 // Простое событие
 public class OrderCreatedEvent : IEvent
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
+    public Guid EventId { get; set; } = Guid.NewGuid(); //Поля IEvent
+    public DateTime CreatedOn { get; set; } = DateTime.UtcNow; //Поля IEvent
     
     public string OrderNumber { get; set; }
     public decimal TotalAmount { get; set; }
@@ -93,6 +93,8 @@ public class OrderCreatedEvent : IEvent
 // Request/Response
 public class GetUserRequest : RequestBase
 {
+    //В RequestBase поля имеют автоматические сеттеры, заполнять их вручную необязательно, но, для observability можно кинуть trace-id
+    
     public int UserId { get; set; }
 }
 
@@ -104,6 +106,8 @@ public class GetUserResponse : ResponseBase
 ```
 
 ### 3. Публикация событий
+
+#### Стандартная публикация
 
 ```csharp
 public class OrderController : ControllerBase
@@ -126,6 +130,38 @@ public class OrderController : ControllerBase
 }
 ```
 
+#### Публикация с кастомным routing key
+
+```csharp
+// Публикация в собственный exchange события
+await _eventBus.PublishAsync(@event, customRoutingKey: "orders.created.vip");
+```
+
+#### Публикация в произвольный exchange
+
+Используйте когда нужно опубликовать в сторонний или системный exchange:
+
+```csharp
+public class EventBridgeHandler : IEventHandler<ExternalSystemEvent>
+{
+    private readonly IEventBus _eventBus;
+    
+    public async Task HandleAsync(ExternalSystemEvent message, CancellationToken ct)
+    {
+        // Публикация в сторонний exchange
+        var routingKey = $"external.{message.Category}.{message.Type}";
+        
+        await _eventBus.PublishToExchangeAsync(
+            @event: message,
+            customExchangeName: "amq.topic",
+            routingKey: routingKey,
+            token: ct);
+    }
+}
+```
+
+**Use cases:** Интеграция со сторонними системами, bridge-адаптерами, legacy exchanges.
+
 ### 4. Обработка событий
 
 ```csharp
@@ -144,7 +180,7 @@ public class OrderCreatedHandler : IEventHandler<OrderCreatedEvent>
 // Регистрация в DI
 services.AddScoped<OrderCreatedHandler>();
 
-// Program.cs
+// Program.cs - стандартная регистрация
 services.AddRabbitMqEventBus(options =>
 {
     options.HostName = "localhost";
@@ -152,11 +188,19 @@ services.AddRabbitMqEventBus(options =>
     options.UserName = "guest";
     options.Password = "guest";
     options.VirtualHost = "/";
-    
-    // Необязательные настройки
 })
-.AddConsumer<OrderCreatedHandler>(EventExchangeType.Direct); //Можно настроить exchangeType
+.AddConsumer<OrderCreatedHandler>(EventExchangeType.Direct);
+
+// Регистрация с кастомным именем очереди
+services.AddRabbitMqEventBus(options => { /* ... */ })
+    .AddConsumer<OrderCreatedHandler>(EventExchangeType.Direct, "custom.order.queue");
 ```
+
+**Зачем кастомные имена очередей?**
+- Миграция с legacy систем (сохранение существующих имен)
+- Интеграция со сторонними системами
+- Упрощенная структура имен для мониторинга
+- Мультитенантность (разные очереди для разных клиентов)
 
 ---
 
@@ -449,6 +493,145 @@ await eventBus.PublishAsync(notification, "notification.critical.security");
 // → Обработают: CriticalNotificationHandler + AllNotificationsHandler
 ```
 
+### Кастомные имена очередей для мультитенантности
+
+```csharp
+// Разные очереди для разных клиентов
+services.AddRabbitMqEventBus(options => { /* ... */ })
+    .AddConsumer<PaymentHandler>(EventExchangeType.Direct, "tenant.client1.payments")
+    .AddConsumer<PaymentHandler>(EventExchangeType.Direct, "tenant.client2.payments")
+    .AddConsumer<PaymentHandler>(EventExchangeType.Direct, "tenant.client3.payments");
+```
+
+### Миграция с legacy систем
+
+```csharp
+// Сохранение существующих имен очередей при миграции
+services.AddRabbitMqEventBus(options => { /* ... */ })
+    .AddConsumer<OrderHandler>(EventExchangeType.Direct, "legacy.orders.queue")
+    .AddConsumer<InvoiceHandler>(EventExchangeType.Direct, "legacy.invoices.queue");
+```
+
+---
+
+## API Reference
+
+### IEventBus Methods
+
+#### PublishAsync<T>(T @event, CancellationToken token = default)
+Публикация события в стандартный exchange события (`exchange.{EventName}`).
+
+**Параметры:**
+- `@event` - событие, реализующее `IEvent`
+- `token` - токен отмены
+
+**Пример:**
+```csharp
+await _eventBus.PublishAsync(new OrderCreatedEvent { OrderId = 123 });
+```
+
+---
+
+#### PublishAsync<T>(T @event, string customRoutingKey, CancellationToken token = default)
+Публикация события с кастомным routing key в стандартный exchange события.
+
+**Параметры:**
+- `@event` - событие, реализующее `IEvent`
+- `customRoutingKey` - кастомный routing key
+- `token` - токен отмены
+
+**Пример:**
+```csharp
+await _eventBus.PublishAsync(orderEvent, "orders.high-priority");
+```
+
+---
+
+#### PublishToExchangeAsync<T>(T @event, string customExchangeName, string routingKey, CancellationToken token = default)
+Публикация события в произвольный exchange.
+
+**Параметры:**
+- `@event` - событие, реализующее `IEvent`
+- `customExchangeName` - имя целевого exchange
+- `routingKey` - routing key для маршрутизации
+- `token` - токен отмены
+
+**Use Cases:**
+- Интеграция со сторонними системами
+- Публикация в системные RabbitMQ exchanges (`amq.topic`, `amq.direct`)
+- Работа с legacy exchanges
+- Мультиплексирование событий между разными exchanges
+
+**Примеры:**
+
+```csharp
+// Публикация в системный exchange
+await _eventBus.PublishToExchangeAsync(
+    @event: notificationEvent,
+    customExchangeName: "amq.topic",
+    routingKey: "notifications.email.critical",
+    token: cancellationToken);
+
+// Публикация в exchange внешней системы
+await _eventBus.PublishToExchangeAsync(
+    @event: orderEvent,
+    customExchangeName: "legacy.orders.exchange",
+    routingKey: "order.created",
+    token: cancellationToken);
+```
+
+**Важно:** Exchange routing keys могут использоваться плагинами RabbitMQ для маршрутизации в различные протоколы. Точки в routing key обычно интерпретируются как разделители иерархии.
+
+---
+
+#### SubscribeAsync<TEvent, THandler>(EventExchangeType exchangeType = EventExchangeType.Fanout)
+Подписка на события с автоматическим созданием exchange и очереди.
+
+**Параметры:**
+- `TEvent` - тип события 
+- `THandler` - тип обработчика
+- `exchangeType` - тип exchange (Fanout/Direct/Topic)
+
+**Пример:**
+```csharp
+await _eventBus.SubscribeAsync<OrderCreatedEvent, OrderCreatedHandler>(EventExchangeType.Direct);
+```
+
+---
+
+#### SubscribeAsync<TEvent, THandler>(EventExchangeType exchangeType, string customQueueName)
+Подписка на события с кастомным именем очереди.
+
+**Параметры:**
+- `TEvent` - тип события
+- `THandler` - тип обработчика
+- `exchangeType` - тип exchange (Fanout/Direct/Topic)
+- `customQueueName` - пользовательское имя очереди
+
+**Use Cases:**
+- Миграция с legacy систем
+- Интеграция со сторонними системами
+- Унифицированные имена для мониторинга
+
+**Пример:**
+```csharp
+await _eventBus.SubscribeAsync<OrderCreatedEvent, OrderCreatedHandler>(
+    EventExchangeType.Direct, 
+    "legacy.orders.processing");
+```
+
+---
+
+#### RequestAsync<TRequest, TResponse>(TRequest request, int timeoutMs = 30000, CancellationToken cancellationToken = default)
+Синхронный запрос-ответ (RPC pattern).
+
+**Параметры:**
+- `request` - запрос, реализующий `IRequest`
+- `timeoutMs` - таймаут ожидания ответа
+- `cancellationToken` - токен отмены
+
+**Возвращает:** `TResponse`
+
 ---
 
 ## FAQ
@@ -471,4 +654,4 @@ A: Предыдущий (существующий) эксчейндж удали
 
 ---
 
-*Версия документации: 1.0.0*
+*Версия документации: 1.1.0*

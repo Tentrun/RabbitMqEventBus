@@ -7,7 +7,7 @@ public class EventConsumerRegister
 {
     private readonly List<ConsumerRegistration> _registrations = new();
 
-    public void AddConsumer<THandler>(EventExchangeType exchangeType = EventExchangeType.Fanout) where THandler : class
+    public void AddConsumer<THandler>(EventExchangeType exchangeType = EventExchangeType.Fanout, string? customQueueName = null) where THandler : class
     {
         var handlerType = typeof(THandler);
         var eventHandlerInterfaces = handlerType.GetInterfaces()
@@ -20,11 +20,11 @@ public class EventConsumerRegister
         foreach (var iface in eventHandlerInterfaces)
         {
             var eventType = iface.GetGenericArguments()[0];
-            _registrations.Add(new ConsumerRegistration(eventType, handlerType, exchangeType));
+            _registrations.Add(new ConsumerRegistration(eventType, handlerType, exchangeType, customQueueName));
         }
     }
 
     public IEnumerable<ConsumerRegistration> GetRegistrations() => _registrations;
 
-    public record ConsumerRegistration(Type EventType, Type HandlerType, EventExchangeType ExchangeType);
+    public record ConsumerRegistration(Type EventType, Type HandlerType, EventExchangeType ExchangeType, string? CustomQueueName = null);
 }

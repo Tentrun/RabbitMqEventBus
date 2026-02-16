@@ -4,12 +4,12 @@ namespace RabbitMqBus.Abstractions.Base.Implementations;
 
 public abstract class EventBase : IEvent
 {
-    private Guid Id { get; set; } = Guid.NewGuid();
+    private Guid EventId { get; set; } = Guid.NewGuid();
 
-    Guid IEvent.Id
+    Guid IEvent.EventId
     {
-        get => Id;
-        set => Id = value;
+        get => EventId;
+        set => EventId = value;
     }
 
     private DateTime CreatedOn { get; set; } = DateTime.UtcNow;
